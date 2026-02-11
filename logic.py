@@ -131,6 +131,50 @@ WHERE project_name = ?''', data = (project_name,) )
         sql = "DELETE FROM project_skills WHERE project_id = ? AND skill_id = ?"
         self.__executemany(sql, [(project_id, skill_id)])
 
+    # --- Simple helper methods (new, beginner-friendly) ---
+    def add_status(self, status_name):
+        """Add a new status to `status` table (ignores if exists)."""
+        sql = 'INSERT OR IGNORE INTO status (status_name) VALUES(?)'
+        self.__executemany(sql, [(status_name,)])
+
+    def delete_status(self, status_id):
+       
+        sql = 'DELETE FROM status WHERE status_id = ?'
+        self.__executemany(sql, [(status_id,)])
+
+    def update_status(self, status_id, new_name):
+        """Update status name by id."""
+        sql = 'UPDATE status SET status_name = ? WHERE status_id = ?'
+        self.__executemany(sql, [(new_name, status_id)])
+
+    def add_skill_name(self, skill_name):
+        """Add a new skill to `skills` table (ignores if exists)."""
+        sql = 'INSERT OR IGNORE INTO skills (skill_name) VALUES(?)'
+        self.__executemany(sql, [(skill_name,)])
+
+    def remove_skill_from_project(self, project_id, skill_name):
+        """Remove a skill (by name) from a project if linked."""
+        res = self.__select_data('SELECT skill_id FROM skills WHERE skill_name = ?', (skill_name,))
+        if not res:
+            return False
+        skill_id = res[0][0]
+        sql = 'DELETE FROM project_skills WHERE project_id = ? AND skill_id = ?'
+        self.__executemany(sql, [(project_id, skill_id)])
+        return True
+
+    def update_skill_name(self, skill_id, new_name):
+        """Rename a skill by id."""
+        sql = 'UPDATE skills SET skill_name = ? WHERE skill_id = ?'
+        self.__executemany(sql, [(new_name, skill_id)])
+
+    def list_statuses_simple(self):
+        """Return a plain list of status names (helper for simple UIs)."""
+        return [r[0] for r in self.get_statuses()]
+
+    def list_skills_simple(self):
+        """Return a plain list of skill names."""
+        return [r[1] for r in self.get_skills()]
+
     def column_exists(self, table, column):
         """Return True if `column` exists in `table`."""
         sql = f"PRAGMA table_info({table})"
@@ -150,18 +194,12 @@ WHERE project_name = ?''', data = (project_name,) )
             conn.commit()
         return True
 
-    def add_screenshot_column(self):
-        """Convenience wrapper to add `screenshot` TEXT column to `projects`."""
-        return self.add_column_if_not_exists('projects', 'screenshot', 'TEXT')
 
 
 if __name__ == '__main__':
     manager = DB_Manager(DATABASE)
     manager.create_tables()
     manager.default_insert()
-    added = manager.add_screenshot_column()
-    if added:
-        print("Added 'screenshot' column to 'projects' table.")
-    else:
-        print("'screenshot' column already exists on 'projects'.")
+
+
     print(f"Database '{DATABASE}' initialized.")
