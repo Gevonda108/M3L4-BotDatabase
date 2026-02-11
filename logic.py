@@ -131,9 +131,37 @@ WHERE project_name = ?''', data = (project_name,) )
         sql = "DELETE FROM project_skills WHERE project_id = ? AND skill_id = ?"
         self.__executemany(sql, [(project_id, skill_id)])
 
+    def column_exists(self, table, column):
+        """Return True if `column` exists in `table`."""
+        sql = f"PRAGMA table_info({table})"
+        res = self.__select_data(sql)
+        return any(r[1] == column for r in res)
+
+    def add_column_if_not_exists(self, table, column, col_type):
+        """Add a column using ALTER TABLE only if it does not already exist.
+
+        Returns True if the column was added, False if it already existed.
+        """
+        if self.column_exists(table, column):
+            return False
+        conn = sqlite3.connect(self.database)
+        with conn:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+            conn.commit()
+        return True
+
+    def add_screenshot_column(self):
+        """Convenience wrapper to add `screenshot` TEXT column to `projects`."""
+        return self.add_column_if_not_exists('projects', 'screenshot', 'TEXT')
+
 
 if __name__ == '__main__':
     manager = DB_Manager(DATABASE)
     manager.create_tables()
     manager.default_insert()
+    added = manager.add_screenshot_column()
+    if added:
+        print("Added 'screenshot' column to 'projects' table.")
+    else:
+        print("'screenshot' column already exists on 'projects'.")
     print(f"Database '{DATABASE}' initialized.")
